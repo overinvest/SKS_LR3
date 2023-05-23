@@ -8,6 +8,7 @@ uniform vec3 ColBigSphere;
 uniform vec3 SmallSphere;			
 uniform vec3 ColSmallSphere;	
 uniform float Reflection;
+uniform float Refraction;
 uniform vec3 UpWallColor;
 uniform vec3 DownWallColor;
 uniform vec3 RightWallColor;
@@ -28,7 +29,7 @@ struct SCamera
     vec3 View;
     vec3 Up;
     vec3 Side;
-    //ќтношение сторон выходного изображени€
+    
     vec2 Scale;
 };
 
@@ -126,50 +127,50 @@ void initializeDefaultLightMaterials(out SLight light)
     materials[0].Color = vec3(ColSmallSphere);
     materials[0].LightCoeffs = vec4(lightCoefs);
     materials[0].ReflectionCoef = Reflection;
-    materials[0].RefractionCoef = 1.3;
+    materials[0].RefractionCoef = Refraction;
     materials[0].MaterialType = MIRROR;
 
     materials[1].Color = vec3(BackWallColor);
     materials[1].LightCoeffs = vec4(lightCoefs);
     materials[1].ReflectionCoef = 0.5;
-    materials[1].RefractionCoef = 1.0;
+    materials[1].RefractionCoef = Refraction;
     materials[1].MaterialType = DIFFUSE;
 
     materials[2].Color = vec3(RightWallColor);
     materials[2].LightCoeffs = vec4(lightCoefs);
     materials[2].ReflectionCoef = 0.5;
-    materials[2].RefractionCoef = 1.0;
+    materials[2].RefractionCoef = Refraction;
     materials[2].MaterialType =  DIFFUSE;
 
     materials[3].Color = vec3(DownWallColor);
     materials[3].LightCoeffs = vec4(lightCoefs);
     materials[3].ReflectionCoef = 0.5;
-    materials[3].RefractionCoef = 1.0;
-    materials[3].MaterialType = DIFFUSE;
+    materials[3].RefractionCoef = Refraction;
+    materials[3].MaterialType = REFRACTION;
 
     materials[4].Color = vec3(UpWallColor);
     materials[4].LightCoeffs = vec4(lightCoefs);
     materials[4].ReflectionCoef = 0.5;
-    materials[4].RefractionCoef = 1.0;
+    materials[4].RefractionCoef = Refraction;
     materials[4].MaterialType =  MIRROR;
 
     materials[5].Color = vec3(LeftWallColor);
     materials[5].LightCoeffs = vec4(lightCoefs);
     materials[5].ReflectionCoef = 0.5;
-    materials[5].RefractionCoef = 1.0;
+    materials[5].RefractionCoef = Refraction;
     materials[5].MaterialType = DIFFUSE;
 
     materials[6].Color = vec3(ColBigSphere);
     materials[6].LightCoeffs = vec4(lightCoefs);
     materials[6].ReflectionCoef = Reflection;
-    materials[6].RefractionCoef = 1.3;
+    materials[6].RefractionCoef = Refraction;
     materials[6].MaterialType = MIRROR;
 
     /* cube */
 	materials[7].Color = vec3(1.0,0.3,0.1);	
 	materials[7].LightCoeffs = vec4(lightCoefs);
 	materials[7].ReflectionCoef = 0.5;
-	materials[7].RefractionCoef = 1.0;	
+	materials[7].RefractionCoef = Refraction;	
     materials[7].MaterialType =MIRROR;
 
 	
@@ -177,7 +178,7 @@ void initializeDefaultLightMaterials(out SLight light)
 	materials[8].Color = vec3(0.1,0.5,0.7);	
 	materials[8].LightCoeffs = vec4(lightCoefs);
 	materials[8].ReflectionCoef = 0.2;
-	materials[8].RefractionCoef = 0.8;
+	materials[8].RefractionCoef = Refraction;
 	materials[8].MaterialType = MIRROR;	
 }
 
@@ -500,18 +501,12 @@ bool Raytrace(SRay ray, float start, float final, inout SIntersection intersect 
 
 float Shadow(SLight currLight, SIntersection intersect)
 {
-    // Point is lighted
     float shadowing = 1.0;
-    // Vector to the light source
     vec3 direction = normalize(currLight.Position - intersect.Point);
-    // Distance to the light source
     float distanceLight = distance(currLight.Position, intersect.Point);
-    // Generation shadow ray for this light source
     SRay shadowRay = SRay(intersect.Point + direction * 0.001, direction);
-    // ...test intersection this ray with each scene object
     SIntersection shadowIntersect;
     shadowIntersect.Time = 1000000.0;
-    // trace ray from shadow ray begining to light source position
     if (Raytrace(shadowRay, 0, distanceLight, shadowIntersect))
     {
         // this light source is invisible in the intercection point
@@ -569,7 +564,7 @@ void main(void )
     initializeDefaultLightMaterials(ulight);
     STracingRay trRay = STracingRay(ray, 1, 0);
     push(trRay);
-    int depth = 2;
+    int depth = 5;
     while (!isEmpty() && depth>0)
     {
         STracingRay trRay = pop();
@@ -597,7 +592,7 @@ void main(void )
                             resultColor += contribution * Phong(intersect, ulight, uCamera);
                         }
                         vec3 reflectDirection = reflect(ray.Direction, intersect.Normal);
-                        // creare reflection ray
+                        
                         float contribution = trRay.contribution * intersect.ReflectionCoef;
                         STracingRay reflectRay = STracingRay(
                         SRay(intersect.Point + reflectDirection * EPSILON, reflectDirection), contribution, trRay.depth + 1);
@@ -605,25 +600,50 @@ void main(void )
                         depth--;
                         break;
                     }
-                case REFRACTION:
+                 case REFRACTION:
                     {
-                        float ior;
-                        int sign;
-                        if (dot(ray.Direction, intersect.Normal) < 0) {
-                            ior = 1.0 / intersect.RefractionCoef;
-                            sign = 1;
+                        vec3 incidentDir = ray.Direction;
+                        vec3 normal = intersect.Normal;
+                        float refractionRatio = intersect.RefractionCoef;
+                        if (dot(incidentDir, normal) > 0.0)
+                        {
+                            // Inside the object, invert the normal and the refraction ratio
+                            normal = -normal;
+                            refractionRatio = 1.0 / refractionRatio;
+
                         }
-                        else {
-                            ior = intersect.RefractionCoef;
-                            sign = -1;
+                        float contribution = trRay.contribution * (1 - refractionRatio);
+
+                        float shadowing = Shadow(ulight, intersect);
+                        resultColor += contribution * Phong(intersect, ulight, uCamera);
+
+                        vec3 refractedDir = refract(incidentDir, normal, refractionRatio);
+                        if (length(refractedDir) > 0.0)
+                        {
+
+                            //contribution = trRay.contribution * intersect.RefractionCoef;
+                            STracingRay reflectRay = STracingRay(SRay(intersect.Point + EPSILON * refractedDir, refractedDir), trRay.contribution * intersect.RefractionCoef, trRay.depth + 1 );
+
+                            
+                            push(reflectRay);
+                            depth--;
                         }
-                        // –ассчитывает направление преломлени€ дл€ веткора падени€ 
-                        vec3 refractionDirection = normalize(refract(ray.Direction, intersect.Normal * sign, ior));
-                        STracingRay refractRay = STracingRay(SRay(intersect.Point + EPSILON * refractionDirection, refractionDirection), trRay.contribution, trRay.depth + 1);
-                        push(refractRay);
-                        depth--;
+                        else
+                        {
+
+                            // Total internal reflection, treat as a mirror reflection
+                            vec3 reflectionDir = reflect(incidentDir, normal);
+                            STracingRay reflectRay = STracingRay(SRay(intersect.Point + EPSILON * reflectionDir, reflectionDir), trRay.contribution * intersect.ReflectionCoef, trRay.depth +1 );
+                            
+
+                            push(reflectRay);
+                            depth--;
+                        }
+
+                        
                         break;
                     }
+
             }
         }
     }

@@ -29,6 +29,7 @@ namespace SKS_LR3
             float x3 = (float)trackBar2.Value / 10;
             view.SetLightCoefs(x1, x2, x3, 512.0f);
             view.SetReflection((float)trackBar7.Value / 10);
+            view.SetRefraction((float)trackBar4.Value / 10);
             if (needreload = true)
             {
                 needreload = false;
@@ -187,6 +188,11 @@ namespace SKS_LR3
         }
 
         private void trackBar7_ValueChanged(object sender, EventArgs e)
+        {
+            handle_update();
+        }
+
+        private void trackBar4_ValueChanged(object sender, EventArgs e)
         {
             handle_update();
         }

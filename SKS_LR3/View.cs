@@ -19,6 +19,7 @@ namespace SKS_LR3
 
         public double mat1 = 0.5;
         public float Reflection = 0.5f;
+        public float Refraction = 1.0f;
         public Vector3 BigSphere = new Vector3(0.0f, 1.0f, 0.0f);
         public Vector3 ColorBigSphere = new Vector3(0.2f, 1.0f, 0.2f);
         public Vector3 SmallSphere = new Vector3(0.0f, 1.0f, 0.0f);
@@ -77,6 +78,12 @@ namespace SKS_LR3
             Reflection = x1;
             DrawBufferObjects();
         }
+
+        public void SetRefraction(float x1)
+        {
+            Refraction = x1;
+            DrawBufferObjects();
+        }
         public void Start()
         {
             InitShaders();
@@ -104,7 +111,11 @@ namespace SKS_LR3
 
             address = (uint)GL.CreateShader(type);
 
-            using (System.IO.StreamReader sr = new StreamReader(filename)) { GL.ShaderSource((int)address, sr.ReadToEnd()); }
+            using (StreamReader sr = new StreamReader(filename)) {
+                string line = sr.ReadToEnd();
+                GL.ShaderSource((int)address, @line);
+            }
+            
 
             GL.CompileShader(address);
             GL.AttachShader(program, address);
@@ -125,6 +136,7 @@ namespace SKS_LR3
 
             GL.UseProgram(BasicProgramID);
             GL.Uniform1(GL.GetUniformLocation(BasicProgramID, "Reflection"), Reflection);
+            GL.Uniform1(GL.GetUniformLocation(BasicProgramID, "Refraction"), Refraction);
             GL.Uniform3(GL.GetUniformLocation(BasicProgramID, "UpWallColor"), ref UpWallColor);
             GL.Uniform3(GL.GetUniformLocation(BasicProgramID, "DownWallColor"), ref DownWallColor);
             GL.Uniform3(GL.GetUniformLocation(BasicProgramID, "LeftWallColor"), ref LeftWallColor);
